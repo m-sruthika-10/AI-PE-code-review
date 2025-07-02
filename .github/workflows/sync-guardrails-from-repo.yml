@@ -1,0 +1,44 @@
+name: Sync guardrails.txt from m-sruthika-10/main
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC
+  workflow_dispatch: # Allow manual triggering
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/sync-guardrails-from-repo.yml'
+
+jobs:
+  sync-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          ref: main # Target branch
+
+      - name: Fetch guardrails.txt from m-sruthika-10/main
+        env:
+          SOURCE_REPO: 'm-sruthika-10/main' # Source repository
+          SOURCE_BRANCH: 'dev_test' # Source branch
+          GITHUB_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }} # PAT for private repo (optional)
+        run: |
+          # Fetch guardrails.txt using GitHub API
+          curl -H "Accept: application/vnd.github.v3.raw" \
+            ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+            "https://api.github.com/repos/$SOURCE_REPO/contents/guardrails.txt?ref=$SOURCE_BRANCH" \
+            -o guardrails.txt || echo "Error fetching guardrails.txt; check repository access or file existence."
+          # Verify file was downloaded
+          if [ ! -f guardrails.txt ]; then
+            echo "Failed to fetch guardrails.txt; exiting."
+            exit 1
+          fi
+
+      - name: Commit guardrails.txt to target repository
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add guardrails.txt
+          git diff --staged --quiet || git commit -m "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
+          git push

@@ -1,0 +1,61 @@
+# Coding Standards for the Repository
+
+## General Standards
+1. Naming Conventions:
+   - Use camelCase for variable and function names in JavaScript, TypeScript, and similar languages.
+   - Use snake_case for variable and function names in Python.
+   - Use meaningful, descriptive names for variables, functions, and classes (e.g., `calculateTotalPrice` instead of `calc`).
+   - Use PascalCase for class names and React components.
+   - Avoid abbreviations unless widely understood (e.g., `id` is acceptable, but `calc` is not).
+
+2. Constants:
+   - Define constants for all magic numbers, strings, or other literal values.
+   - Use uppercase with underscores for constant names (e.g., `MAX_RETRY_COUNT`).
+   - Group related constants in a single file or module when possible.
+
+3. Code Structure:
+   - Keep functions small and focused, performing a single task.
+   - Limit line length to 79 characters for Python (per PEP 8) and 80 characters for other languages.
+   - Use consistent indentation (4 spaces for Python, 2 spaces for JavaScript/TypeScript).
+   - Avoid nested code blocks deeper than 3 levels; refactor complex logic into separate functions.
+
+4. Documentation:
+   - All public functions, methods, and classes must have documentation.
+   - Use JSDoc for JavaScript/TypeScript (e.g., `@param`, `@returns`).
+   - Use docstrings for Python functions and modules (Google or NumPy style).
+   - Include comments for complex logic, but avoid redundant comments (e.g., don’t comment `i++` as “increment i”).
+
+5. Error Handling:
+   - Always handle errors explicitly (e.g., try/catch in JavaScript, try/except in Python).
+   - Log errors with sufficient context (e.g., include input parameters or stack traces).
+   - Avoid silent failures; ensure errors are either handled or propagated appropriately.
+
+## Language-Specific Standards
+
+### JavaScript and TypeScript
+1. Use arrow functions for functional components in React and for concise callbacks.
+2. Prefer `const` over `let` unless reassignment is required; avoid `var`.
+3. Use `async/await` for asynchronous code instead of raw promises where possible.
+4. Enforce strict type checking in TypeScript with `noImplicitAny` and `strictNullChecks`.
+5. Avoid inline styles in React; use CSS modules or styled-components.
+
+### Python
+1. Follow PEP 8 for style (e.g., 4-space indentation, no trailing whitespace).
+2. Use type hints for function parameters and return types (PEP 484).
+3. Organize imports: standard library, third-party, local imports, separated by blank lines.
+4. Use list comprehensions for simple transformations, but avoid overly complex ones.
+5. Write unit tests for all public functions using `unittest` or `pytest`.
+
+### Configuration Files (JSON, YAML)
+1. Use consistent indentation (2 spaces for JSON/YAML).
+2. Include comments in YAML to explain complex configurations.
+3. Validate JSON/YAML files before committing (e.g., using `jsonlint` or `yamllint`).
+
+## Best Practices
+1. Write modular, reusable code; avoid duplication (DRY principle).
+2. Use version control best practices (e.g., meaningful commit messages, small commits).
+3. Run linters (e.g., ESLint for JavaScript, flake8 for Python) and formatters (e.g., Prettier, Black) before committing.
+4. Ensure code is compatible with the repository’s CI/CD pipeline.
+5. Avoid hardcoding environment-specific values; use environment variables or configuration files.
+
+For additional details or exceptions, consult the project’s README or team documentation.
