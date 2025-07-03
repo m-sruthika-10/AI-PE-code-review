@@ -13,18 +13,20 @@ on:
 jobs:
   sync-guardrails:
     runs-on: ubuntu-latest
+    environment: REPO_ACCESS_TOKEN # Reference the environment where the secret is stored
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v4
         with:
-          ref: main # Target branch
-          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT for write access
+          ref: main
+          token: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
+          repository: m-sruthika-10/AI-PE-code-review
 
       - name: Fetch guardrails.txt from source repository
         env:
           SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
           SOURCE_BRANCH: 'dev_test' # Source branch
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }} # PAT with repo scope
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
         run: |
           set -x # Enable verbose logging
           curl -H "Accept: application/vnd.github.v3.raw" \
@@ -37,16 +39,20 @@ jobs:
             exit 1
           fi
 
-      - name: Commit guardrails.txt to target repository
+      - name: Commit guardrails.txt and create PR
         env:
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
+          git checkout -b sync-guardrails-$(date +%s)
           git add guardrails.txt
           if git diff --staged --quiet; then
             echo "No changes to guardrails.txt; skipping commit."
           else
             git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-            git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git main
+            git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git sync-guardrails-$(date +%s)
+            gh pr create --title "Sync guardrails.txt from $SOURCE_REPO" --body "Automated sync of guardrails.txt" --base main --head sync-guardrails-$(date +%s)
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
