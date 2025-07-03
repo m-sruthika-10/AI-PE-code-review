@@ -42,6 +42,7 @@ jobs:
       - name: Commit guardrails.txt and create PR
         env:
           REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Move GITHUB_TOKEN here
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
@@ -54,5 +55,3 @@ jobs:
             git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git sync-guardrails-$(date +%s)
             gh pr create --title "Sync guardrails.txt from $SOURCE_REPO" --body "Automated sync of guardrails.txt" --base main --head sync-guardrails-$(date +%s)
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
