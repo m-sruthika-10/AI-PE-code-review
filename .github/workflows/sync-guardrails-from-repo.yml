@@ -16,9 +16,9 @@ jobs:
     steps:
       - name: Configure Git credentials
         run: |
-          echo "machine github.com login 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 password x-oauth-basic" > ~/.netrc
-          chmod 600 ~/.netrc
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global credential.helper "store --file=.git-credentials"
+          echo "https://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@github.com" > .git-credentials
+          chmod 600 .git-credentials
           git config --global --add safe.directory /github/workspace
 
       - name: Checkout target repository
