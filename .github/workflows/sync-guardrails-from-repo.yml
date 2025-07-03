@@ -2,7 +2,7 @@ name: Sync guardrails.txt from source repo
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight UTC
+    - cron: '0 0 * * *' # Run daily at midnight UTC (5:30 AM IST)
   workflow_dispatch: # Allow manual triggering
   push:
     branches:
@@ -19,24 +19,13 @@ jobs:
         with:
           ref: main
           repository: m-sruthika-10/AI-PE-code-review
-          token: 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 # Hardcoded PAT for testing
-          ssh-strict: true
-          ssh-user: git
-          persist-credentials: true
-          clean: true
-          sparse-checkout-cone-mode: true
-          fetch-depth: 1
-          fetch-tags: false
-          show-progress: true
-          lfs: false
-          submodules: false
-          set-safe-directory: true
+          token: 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 # Replace with your actual PAT
 
       - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
+          SOURCE_REPO: 'm-sruthika-10/main' # Source repository where guardrails.txt resides
           SOURCE_BRANCH: 'dev_test' # Source branch
-          REPO_ACCESS_TOKEN: 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 # Hardcoded PAT for testing
+          REPO_ACCESS_TOKEN: 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 # Replace with your actual PAT
         run: |
           set -x # Enable verbose logging
           curl -H "Accept: application/vnd.github.v3.raw" \
@@ -51,8 +40,8 @@ jobs:
 
       - name: Commit guardrails.txt and create PR
         env:
-          REPO_ACCESS_TOKEN: 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 # Hardcoded PAT for testing
-          GITHUB_TOKEN: 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 # Hardcoded PAT for testing
+          REPO_ACCESS_TOKEN: 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 # Replace with your actual PAT
+          GITHUB_TOKEN: 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 # Replace with your actual PAT
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
