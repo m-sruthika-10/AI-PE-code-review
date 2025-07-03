@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Configure Git credentials
         run: |
@@ -60,6 +61,6 @@ jobs:
             echo "No changes to guardrails.txt; skipping commit."
           else
             git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-            git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git sync-guardrails-$(date +%s)
+            git push origin sync-guardrails-$(date +%s)
             gh pr create --title "Sync guardrails.txt from $SOURCE_REPO" --body "Automated sync of guardrails.txt" --base main --head sync-guardrails-$(date +%s)
           fi
