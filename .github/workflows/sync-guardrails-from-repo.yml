@@ -25,8 +25,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
-          repository: m-sruthika-10/AI-PE-code-review
-          token: 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 # Your working PAT
+          # repository: m-sruthika-10/AI-PE-code-review
+          # token: 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 # Your working PAT
 
       - name: Fetch guardrails.txt from source repository
         env:
