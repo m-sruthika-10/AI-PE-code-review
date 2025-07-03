@@ -1,4 +1,5 @@
-name: Sync guardrails.txt from m-sruthika-10/main
+name: Sync guardrails.txt from source repo
+
 on:
   schedule:
     - cron: '0 0 * * *' # Run daily at midnight UTC
@@ -17,18 +18,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main # Target branch
+          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT for write access
 
-      - name: Fetch guardrails.txt from m-sruthika-10/main
+      - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/main' # Source repository
+          SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
           SOURCE_BRANCH: 'dev_test' # Source branch
-          GITHUB_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }} # PAT for private repo (optional)
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }} # PAT with repo scope
         run: |
-          # Fetch guardrails.txt using GitHub API
+          set -x # Enable verbose logging
           curl -H "Accept: application/vnd.github.v3.raw" \
-            ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+            -H "Authorization: Bearer $REPO_ACCESS_TOKEN" \
             "https://api.github.com/repos/$SOURCE_REPO/contents/guardrails.txt?ref=$SOURCE_BRANCH" \
-            -o guardrails.txt || echo "Error fetching guardrails.txt; check repository access or file existence."
+            -o guardrails.txt || { echo "Error fetching guardrails.txt; check token, repository, or file existence."; exit 1; }
           # Verify file was downloaded
           if [ ! -f guardrails.txt ]; then
             echo "Failed to fetch guardrails.txt; exiting."
@@ -36,9 +38,15 @@ jobs:
           fi
 
       - name: Commit guardrails.txt to target repository
+        env:
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
-          git config user.name "GitHub Action"
+          git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
           git add guardrails.txt
-          git diff --staged --quiet || git commit -m "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to guardrails.txt; skipping commit."
+          else
+            git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
+            git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git main
+          fi
