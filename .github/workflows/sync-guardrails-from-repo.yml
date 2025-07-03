@@ -55,12 +55,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
-          git checkout -b sync-guardrails-$(date +%s)
           git add guardrails.txt
           if git diff --staged --quiet; then
             echo "No changes to guardrails.txt; skipping commit."
           else
             git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-            git push origin sync-guardrails-$(date +%s)
-            gh pr create --title "Sync guardrails.txt from $SOURCE_REPO" --body "Automated sync of guardrails.txt" --base main --head sync-guardrails-$(date +%s)
+            git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git main
           fi
