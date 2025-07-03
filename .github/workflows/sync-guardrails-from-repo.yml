@@ -13,20 +13,30 @@ on:
 jobs:
   sync-guardrails:
     runs-on: ubuntu-latest
-    environment: REPO_ACCESS_TOKEN # Reference the environment where the secret is stored
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v4
         with:
           ref: main
-          token: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
           repository: m-sruthika-10/AI-PE-code-review
+          token: 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 # Hardcoded PAT for testing
+          ssh-strict: true
+          ssh-user: git
+          persist-credentials: true
+          clean: true
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+          fetch-tags: false
+          show-progress: true
+          lfs: false
+          submodules: false
+          set-safe-directory: true
 
       - name: Fetch guardrails.txt from source repository
         env:
           SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
           SOURCE_BRANCH: 'dev_test' # Source branch
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
+          REPO_ACCESS_TOKEN: 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 # Hardcoded PAT for testing
         run: |
           set -x # Enable verbose logging
           curl -H "Accept: application/vnd.github.v3.raw" \
@@ -41,8 +51,8 @@ jobs:
 
       - name: Commit guardrails.txt and create PR
         env:
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Access the secret from the environment
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN.REPO_ACCESS_TOKEN }} # Move GITHUB_TOKEN here
+          REPO_ACCESS_TOKEN: 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 # Hardcoded PAT for testing
+          GITHUB_TOKEN: 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 # Hardcoded PAT for testing
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
