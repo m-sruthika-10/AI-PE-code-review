@@ -24,15 +24,11 @@ jobs:
           #token: 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 # Use PAT for authentication
 
       - name: Configure Git credentials
-        env:
-          REPO_ACCESS_TOKEN: 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
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
           git config --global --add safe.directory /github/workspace
-          # Configure HTTPS authentication with PAT
-          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:$REPO_ACCESS_TOKEN" | base64)"
-          echo "Git configuration set for HTTPS authentication"
+          echo "Git configuration set"
 
       - name: Fetch guardrails.txt from source repository
         env:
