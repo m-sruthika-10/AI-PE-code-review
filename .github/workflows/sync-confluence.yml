@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for PR creation to compare branches
+          fetch-depth: 0 # Needed for git diff and PR creation
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -54,31 +54,61 @@ jobs:
               f.write('# Java Coding Standards\n\n' + markdown)
           "
 
-      - name: Commit and Push to New Branch
+      - name: Check for changes and create branch
+        id: check-changes
         run: |
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
-          git checkout -b confluence-sync-$(date +%s)
+          set -x
+          BRANCH_NAME="confluence-sync-$(date +%s)"
+          # Check if branch already exists in remote
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists in remote, generating new branch name"
+            BRANCH_NAME="confluence-sync-$(date +%s)-$(openssl rand -hex 4)"
+          fi
+          git checkout -b "$BRANCH_NAME"
           git add docs/java_coding_standards.md
-          git commit -m 'Update Java Coding Standards from Confluence' || echo "No changes to commit"
-          git push origin confluence-sync-$(date +%s)
+          if git diff --staged --quiet; then
+            echo "No changes to java_coding_standards.md; skipping PR"
+            echo "branch_name=" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in java_coding_standards.md"
+            git commit -m "Sync Java Coding Standards from Confluence"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push changes
+        if: steps.check-changes.outputs.branch_name != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          BRANCH_NAME: ${{ steps.check-changes.outputs.branch_name }}
+        run: |
+          set -x
+          git push --set-upstream origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
 
       - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
-          title: 'Update Java Coding Standards from Confluence'
-          body: 'Automated update of Java Coding Standards from Confluence page.'
-          branch: confluence-sync-$(date +%s)
-          base: main
-          delete-branch: true # Delete branch after PR is merged
+        id: create-pr
+        if: steps.check-changes.outputs.branch_name != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          BRANCH_NAME: ${{ steps.check-changes.outputs.branch_name }}
+        run: |
+          set -x
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "Sync Java Coding Standards from Confluence" \
+            --body "Automated sync of Java Coding Standards from Confluence page." \
+            --repo m-sruthika-10/AI-PE-code-review) || { echo "Error: Failed to create PR"; exit 1; }
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "Created PR #$PR_NUMBER"
+          echo "pull_request_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Enable Auto-Merge
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
-          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-          merge-method: merge
+      - name: Auto-merge Pull Request
+        if: steps.create-pr.outputs.pull_request_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          set -x
+          PR_NUMBER=${{ steps.create-pr.outputs.pull_request_number }}
+          # Wait briefly to ensure PR is ready
+          sleep 5
+          gh pr merge $PR_NUMBER --squash --auto --delete-branch || { echo "Error: Failed to enable auto-merge for PR #$PR_NUMBER"; exit 1; }
