@@ -93,8 +93,10 @@ jobs:
           delete-branch: true
           commit-message: "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
           add-paths: guardrails.txt
-          # Disable force-push to respect branch protection rules
+          # Disable fork-related operations and force-pushing
           push-to-fork: false
+          # Ensure no force-push attempts
+          branch-suffix: none
 
       - name: Auto-merge Pull Request
         if: steps.create-pr.outputs.pull-request-number != ''
@@ -103,4 +105,6 @@ jobs:
         run: |
           set -x
           PR_NUMBER=${{ steps.create-pr.outputs.pull-request-number }}
+          # Wait briefly to ensure PR is ready
+          sleep 5
           gh pr merge $PR_NUMBER --squash --auto --delete-branch || { echo "Error: Failed to enable auto-merge for PR #$PR_NUMBER"; exit 1; }
