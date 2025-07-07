@@ -24,14 +24,10 @@ jobs:
           token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT from secrets
 
       - name: Configure Git credentials
-        env:
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
           git config --global --add safe.directory /github/workspace
-          # Set PAT for all Git operations
-          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:$REPO_ACCESS_TOKEN" | base64)"
           echo "Git configuration set"
 
       - name: Fetch guardrails.txt from source repository
