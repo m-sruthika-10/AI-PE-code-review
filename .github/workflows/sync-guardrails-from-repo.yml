@@ -15,90 +15,81 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write # Required for creating and merging PRs
+      pull-requests: write
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v4
         with:
           ref: main
-          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT from secrets
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: Configure Git credentials
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
-          git config --global --add safe.directory /github/workspace
           echo "Git configuration set"
 
       - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/main' # Source repository
-          SOURCE_BRANCH: 'dev_test' # Source branch
+          SOURCE_REPO: 'm-sruthika-10/main'
+          SOURCE_BRANCH: 'dev_test'
           REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
-          set -x # Enable verbose logging
-          # Fetch guardrails.txt
+          set -x
           curl -H "Accept: application/vnd.github.v3.raw" \
             -H "Authorization: Bearer $REPO_ACCESS_TOKEN" \
             "https://api.github.com/repos/$SOURCE_REPO/contents/guardrails.txt?ref=$SOURCE_BRANCH" \
-            -o guardrails.txt || { echo "Error fetching guardrails.txt; check token, repository, or file existence."; exit 1; }
-          # Verify file was downloaded
+            -o guardrails.txt || { echo "Error fetching guardrails.txt"; exit 1; }
           if [ ! -f guardrails.txt ]; then
-            echo "Failed to fetch guardrails.txt; exiting."
+            echo "Failed to fetch guardrails.txt"
             exit 1
           fi
-          # Check for API error response
           if grep -q '"message": "Bad credentials"' guardrails.txt; then
-            echo "Error: Received 'Bad credentials' from GitHub API; check REPO_ACCESS_TOKEN."
+            echo "Error: Bad credentials; check REPO_ACCESS_TOKEN"
             exit 1
           fi
 
-      - name: Commit guardrails.txt and create PR
-        id: commit-changes
-        env:
-          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+      - name: Check for changes and create branch
+        id: check-changes
         run: |
-          set -x # Enable verbose logging
-          # Create a new branch with a unique name
+          set -x
           BRANCH_NAME="sync-guardrails-$(date +%s)"
           git checkout -b "$BRANCH_NAME"
           git add guardrails.txt
           if git diff --staged --quiet; then
-            echo "No changes to guardrails.txt; skipping commit."
-            echo "branch_name=" >> $GITHUB_OUTPUT # Set empty branch name to skip PR
+            echo "No changes to guardrails.txt; skipping PR"
+            echo "branch_name=" >> $GITHUB_OUTPUT
           else
-            git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-            # Push with error handling and verbose output
-            if ! git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git "$BRANCH_NAME" --verbose; then
-              echo "Error: Failed to push branch $BRANCH_NAME"
-              exit 1
-            fi
-            echo "Branch pushed: $BRANCH_NAME"
-            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT # Pass branch name to next step
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.branch_name != ''
+        env:
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          set -x
+          git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
+          git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git "$BRANCH_NAME"
 
       - name: Create Pull Request
         id: create-pr
-        if: steps.commit-changes.outputs.branch_name != '' # Only run if branch was created
+        if: steps.check-changes.outputs.branch_name != ''
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT
-          branch: ${{ steps.commit-changes.outputs.branch_name }} # Use branch name from previous step
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          branch: ${{ steps.check-changes.outputs.branch_name }}
           base: main
-          title: "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
+          title: "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
           body: |
-            Automated sync of guardrails.txt from $SOURCE_REPO dev_test branch.
-            This PR updates the guardrails.txt file with the latest changes.
-          commit-message: "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-          delete-branch: true # Delete the branch after PR is merged or closed
+            Automated sync of guardrails.txt from m-sruthika-10/main dev_test branch.
+          delete-branch: true
 
       - name: Auto-merge Pull Request
-        if: steps.create-pr.outputs.pull-request-number != '' # Only run if PR was created
+        if: steps.create-pr.outputs.pull-request-number != ''
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
-          set -x # Enable verbose logging
+          set -x
           PR_NUMBER=${{ steps.create-pr.outputs.pull-request-number }}
-          # Enable auto-merge for the PR
           gh pr merge $PR_NUMBER --squash --auto --delete-branch || { echo "Error: Failed to enable auto-merge for PR #$PR_NUMBER"; exit 1; }
-          echo "Auto-merge enabled for PR #$PR_NUMBER"
