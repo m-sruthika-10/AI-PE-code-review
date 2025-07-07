@@ -68,7 +68,7 @@ jobs:
         if: steps.commit-changes.outputs.branch_name != '' # Only run if branch was created
         uses: peter-evans/create-pull-request@v7
         with:
-          token: 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 # Use PAT
+          #token: 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 # Use PAT
           branch: ${{ steps.commit-changes.outputs.branch_name }} # Use branch name from previous step
           base: main
           title: "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
