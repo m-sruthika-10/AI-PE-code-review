@@ -1,91 +1,74 @@
-public class Employee //no javadoc 
+public class employee // Violation 1: Class name should be PascalCase (Employee), not lowercase
 {
-private static final int max_name_length=50; // inconsistent naming
-private static final double MinSalary=0.0; // inconsistent naming
-private final String ID; // unclear variable name
-private String FIRSTNAME; // all caps, non-standard
-private String lastName;
-private double salary;
-private Department dept; // abbreviated name
-/**
- * Constructs an Employee with the specified details.
- *
- * @param employeeId unique identifier for the employee
- * @param firstName  employee's first name
- * @param lastName   employee's last name
- * @param salary     employee's monthly salary
- * @throws IllegalArgumentException if parameters are invalid
- */
-public Employee(String employeeId,String firstName,String lastName,double salary) //no spaces after commas
-{
-validateEmployeeId(employeeId);
-validateName(firstName,"First name");
-validateName(lastName,"Last name");
-validateSalary(salary);
-ID=employeeId; // no this. prefix
-FIRSTNAME=firstName;
-lastName=lastName;
-this.salary=salary;
-}
-private void validateEmployeeId(String employeeId){
-if(employeeId==null||employeeId.trim().isEmpty()) // missing spaces around operators
-throw new IllegalArgumentException("Employee ID cannot be null or empty");
-}
-private void validateName(String name,String fieldName) // no javadoc
-{
-if(name==null||name.trim().isEmpty()) // missing spaces
-throw new IllegalArgumentException(fieldName+" cannot be null or empty");
-if(name.length()>max_name_length)
-throw new IllegalArgumentException(fieldName+" cannot exceed "+max_name_length+" characters");
-}
-private void validateSalary(double salary) //no javadoc
-{
-if(salary<MinSalary) throw new IllegalArgumentException("Salary cannot be negative"); // single line, no braces
-}
-public String getFullName(){
-return FIRSTNAME+" "+lastName; // inconsistent naming
-}
-public String getEmployeeId(){
-return ID;
-}
-public String getFirstName(){
-return FIRSTNAME;
-}
-public void setFirstName(String firstName){
-validateName(firstName,"First name");
-FIRSTNAME=firstName;
-}
-public String getLastName(){
-return lastName;
-}
-public void setLastName(String lastName){
-validateName(lastName,"Last name");
-this.lastName=lastName;
-}
-public double getSalary(){
-return salary;
-}
-public void setSalary(double salary){
-validateSalary(salary);
-this.salary=salary;
-}
-public Department getDepartment(){
-return dept;
-}
-public void setDepartment(Department department){
-dept=department; // no this. prefix
-}
-public enum Department{ENGINEERING,HR,FINANCE,MARKETING} // no spacing, no javadoc
-public String toString() // no override annotation
-{
-return "Employee{ID='"+ID+"', fullName='"+getFullName()+"', salary="+salary+", department="+(dept!=null?dept:"Not assigned")+'}'; // overly complex string
-}
-public boolean equals(Object obj) // no javadoc
-{
-if(this==obj) return true;
-if(!(obj instanceof Employee)) return false;
-Employee other=(Employee)obj;
-return ID.equals(other.ID);
-}
-public int hashCode(){return ID.hashCode();} // single line, no javadoc
+    private static final int MAX_NAME_LENGTH = 50; // Fixed naming, but kept for context
+    private static final double min_salary = 0.0; // Violation 2: Inconsistent naming (should be MIN_SALARY, all caps for constants)
+    private String emp_id; // Violation 3: Non-descriptive name (emp_id) and missing final for immutable field
+    private String FIRST_NAME; // Violation 4: Non-standard naming (all caps, should be firstName)
+    private String LastName; // Violation 5: Inconsistent naming (should be lastName, not PascalCase)
+    private double Salary; // Violation 6: Should be camelCase (salary), not PascalCase
+    private Department d; // Violation 7: Abbreviated, non-descriptive name (d)
+
+    // Violation 8: Missing Javadoc for constructor
+    public employee(String emp_id,String fname,String lname,double Salary) // Violation 9: No spaces after commas
+    {
+        if(emp_id == null || emp_id.trim().isEmpty()) // Violation 10: Missing spaces around operators
+            throw new IllegalArgumentException("Employee ID cannot be null or empty");
+        if(fname == null || fname.trim().isEmpty()) // Violation 11: Missing spaces around operators
+            throw new IllegalArgumentException("First name cannot be null or empty");
+        if(lname == null || lname.trim().isEmpty()) // Violation 12: Missing spaces around operators
+            throw new IllegalArgumentException("Last name cannot be null or empty");
+        if(Salary < min_salary) // Violation 13: Single-line if without braces
+            throw new IllegalArgumentException("Salary cannot be negative");
+        
+        this.emp_id = emp_id;
+        FIRST_NAME = fname;
+        LastName = lname;
+        this.Salary = Salary;
+    }
+
+    // Violation 14: Missing Javadoc for method
+    public String get_full_name() // Violation 15: Non-standard method name (should be getFullName)
+    {
+        return FIRST_NAME + " " + LastName; // Violation 16: Inconsistent variable naming usage
+    }
+
+    public String getEmp_id() // Violation 17: Inconsistent method naming (should be getEmpId)
+    {
+        return emp_id;
+    }
+
+    // Violation 18: Missing Javadoc for method
+    public void setFirstName(String FIRST_NAME) // Violation 19: Parameter name should be camelCase (firstName)
+    {
+        if(FIRST_NAME == null || FIRST_NAME.trim().isEmpty()) // Violation 20: Missing spaces around operators
+            throw new IllegalArgumentException("First name cannot be null or empty");
+        this.FIRST_NAME = FIRST_NAME; // Violation 21: Inconsistent naming
+    }
+
+    public String getLastName() { return LastName; } // Violation 22: Single-line method, could use consistent formatting
+    public void setLastName(String LastName) { this.LastName = LastName; } // Violation 23: Parameter name should be camelCase (lastName)
+    public double getSalary() { return Salary; } // Violation 24: Inconsistent variable naming
+    public void setSalary(double Salary) { this.Salary = Salary; } // Violation 25: Parameter name should be camelCase (salary)
+    public Department getDepartment() { return d; } // Violation 26: Non-descriptive variable name (d)
+    public void setDepartment(Department d) { this.d = d; } // Violation 27: Non-descriptive parameter name (d)
+
+    public enum department {ENG,HR,FIN,SALES} // Violation 28: Enum name should be PascalCase (Department), values should be all caps
+
+    // Violation 29: Missing @Override annotation
+    public String toString()
+    {
+        return "employee[id=" + emp_id + ",name=" + FIRST_NAME + " " + LastName + "]"; // Violation 30: No spaces around concatenation operators
+    }
+
+    // Violation 31: Missing Javadoc for method
+    public boolean equals(Object OBJ) // Violation 32: Parameter name should be lowercase (obj)
+    {
+        if(this == OBJ) return true;
+        if(!(OBJ instanceof employee)) return false; // Violation 33: Inconsistent class name usage
+        employee other = (employee)OBJ; // Violation 34: Inconsistent naming
+        return emp_id.equals(other.emp_id);
+    }
+
+    // Violation 35: Single-line method, missing Javadoc
+    public int hashCode() { return emp_id.hashCode(); }
 }
