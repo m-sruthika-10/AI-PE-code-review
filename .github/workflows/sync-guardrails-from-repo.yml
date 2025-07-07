@@ -72,7 +72,7 @@ jobs:
           BRANCH_NAME: ${{ steps.check-changes.outputs.branch_name }}
         run: |
           set -x
-          git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git "$BRANCH_NAME"
+          git push --set-upstream origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
 
       - name: Create Pull Request
         id: create-pr
@@ -86,6 +86,9 @@ jobs:
           body: |
             Automated sync of guardrails.txt from m-sruthika-10/main dev_test branch.
           delete-branch: true
+          # Prevent the action from resetting the branch
+          commit-message: "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
+          add-paths: guardrails.txt
 
       - name: Auto-merge Pull Request
         if: steps.create-pr.outputs.pull-request-number != ''
