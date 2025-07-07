@@ -32,7 +32,7 @@ jobs:
 
       - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/<source-repo-name>' # Replace with actual source repo name
+          SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
           SOURCE_BRANCH: 'dev_test' # Source branch
           REPO_ACCESS_TOKEN: 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
         run: |
