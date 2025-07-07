@@ -1,22 +1,33 @@
 name: Sync Confluence Java Coding Standards to GitHub
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight UTC
+    - cron: '0 0 * * *' # Run daily at midnight UTC (5:30 AM IST)
   workflow_dispatch: # Allow manual triggering
   push:
     branches:
       - main
     paths:
       - 'docs/**'
+      - '.github/workflows/sync-confluence.yml' # Trigger on workflow changes
 
 jobs:
   sync-confluence:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for git diff and PR creation
+          ref: main
+          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use REPO_ACCESS_TOKEN for Git credentials
+
+      - name: Configure Git credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "action@github.com"
+          echo "Git configuration set"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -58,8 +69,6 @@ jobs:
         id: check-changes
         run: |
           set -x
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
           BRANCH_NAME="confluence-sync-$(date +%s)"
           # Check if branch already exists in remote
           if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
@@ -84,7 +93,7 @@ jobs:
           BRANCH_NAME: ${{ steps.check-changes.outputs.branch_name }}
         run: |
           set -x
-          git push https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/m-sruthika-10/AI-PE-code-review.git HEAD:$BRANCH_NAME --set-upstream || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
+          git push --set-upstream origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
 
       - name: Create Pull Request
         id: create-pr
