@@ -84,7 +84,7 @@ jobs:
           BRANCH_NAME: ${{ steps.check-changes.outputs.branch_name }}
         run: |
           set -x
-          git push --set-upstream origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
+          git push https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/m-sruthika-10/AI-PE-code-review.git HEAD:$BRANCH_NAME --set-upstream || { echo "Error: Failed to push branch $BRANCH_NAME"; exit 1; }
 
       - name: Create Pull Request
         id: create-pr
