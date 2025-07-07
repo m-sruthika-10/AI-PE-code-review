@@ -58,6 +58,8 @@ jobs:
         id: check-changes
         run: |
           set -x
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
           BRANCH_NAME="confluence-sync-$(date +%s)"
           # Check if branch already exists in remote
           if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
