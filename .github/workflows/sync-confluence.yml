@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: '0 0 * * *' # Run daily at midnight UTC
   workflow_dispatch: # Allow manual triggering
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
 
 jobs:
   sync-confluence:
@@ -10,6 +15,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for PR creation to compare branches
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -47,12 +54,31 @@ jobs:
               f.write('# Java Coding Standards\n\n' + markdown)
           "
 
-      - name: Commit and Push Changes
+      - name: Commit and Push to New Branch
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
+          git checkout -b confluence-sync-$(date +%s)
           git add docs/java_coding_standards.md
           git commit -m 'Update Java Coding Standards from Confluence' || echo "No changes to commit"
-          git push
+          git push origin confluence-sync-$(date +%s)
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          title: 'Update Java Coding Standards from Confluence'
+          body: 'Automated update of Java Coding Standards from Confluence page.'
+          branch: confluence-sync-$(date +%s)
+          base: main
+          delete-branch: true # Delete branch after PR is merged
+
+      - name: Enable Auto-Merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: merge
