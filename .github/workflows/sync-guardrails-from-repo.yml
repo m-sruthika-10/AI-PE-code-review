@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write # Required for creating PRs
+      pull-requests: write # Required for creating and merging PRs
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v4
@@ -24,15 +24,19 @@ jobs:
           token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT from secrets
 
       - name: Configure Git credentials
+        env:
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "action@github.com"
           git config --global --add safe.directory /github/workspace
+          # Set PAT for all Git operations
+          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:$REPO_ACCESS_TOKEN" | base64)"
           echo "Git configuration set"
 
       - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/main' # Correct source repository
+          SOURCE_REPO: 'm-sruthika-10/main' # Source repository
           SOURCE_BRANCH: 'dev_test' # Source branch
           REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
@@ -68,8 +72,8 @@ jobs:
             echo "branch_name=" >> $GITHUB_OUTPUT # Set empty branch name to skip PR
           else
             git commit -m "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-            # Push with error handling
-            if ! git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git "$BRANCH_NAME"; then
+            # Push with error handling and verbose output
+            if ! git push https://x-access-token:$REPO_ACCESS_TOKEN@github.com/m-sruthika-10/AI-PE-code-review.git "$BRANCH_NAME" --verbose; then
               echo "Error: Failed to push branch $BRANCH_NAME"
               exit 1
             fi
@@ -78,6 +82,7 @@ jobs:
           fi
 
       - name: Create Pull Request
+        id: create-pr
         if: steps.commit-changes.outputs.branch_name != '' # Only run if branch was created
         uses: peter-evans/create-pull-request@v7
         with:
@@ -89,4 +94,15 @@ jobs:
             Automated sync of guardrails.txt from $SOURCE_REPO dev_test branch.
             This PR updates the guardrails.txt file with the latest changes.
           commit-message: "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
-          delete-branch: true # Delete the branch after PR is merged
+          delete-branch: true # Delete the branch after PR is merged or closed
+
+      - name: Auto-merge Pull Request
+        if: steps.create-pr.outputs.pull-request-number != '' # Only run if PR was created
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          set -x # Enable verbose logging
+          PR_NUMBER=${{ steps.create-pr.outputs.pull-request-number }}
+          # Enable auto-merge for the PR
+          gh pr merge $PR_NUMBER --squash --auto --delete-branch || { echo "Error: Failed to enable auto-merge for PR #$PR_NUMBER"; exit 1; }
+          echo "Auto-merge enabled for PR #$PR_NUMBER"
