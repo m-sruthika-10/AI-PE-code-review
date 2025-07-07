@@ -1,0 +1,64 @@
+name: Create Jira Ticket from Copilot Code Review
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  create-jira-ticket:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Fetch PR review comments
+      - name: Get PR review comments
+        id: get-comments
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          script: |
+            const comments = await github.rest.pulls.listReviewComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            // Filter comments that indicate standards violations (customize this logic)
+            const violationComments = comments.data.filter(comment =>
+              comment.body.includes('standards violation') || comment.body.includes('coding standard')
+            );
+            return violationComments;
+
+      # Create Jira ticket if violations are found
+      - name: Create Jira issue
+        if: steps.get-comments.outputs.result != '[]'
+        env:
+          JIRA_BASE_URL: https://sruthikaprodapt.atlassian.net
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          JIRA_PROJECT_KEY: APB
+        run: |
+          # Parse the comments from the previous step
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[] | .body')
+          
+          # Create JSON payload for Jira issue
+          JIRA_PAYLOAD=$(jq -n \
+            --arg summary "Coding Standards Violation in PR #${{ github.event.pull_request.number }}" \
+            --arg description "Found coding standards violations in PR: ${{ github.event.pull_request.html_url }}\n\nComments:\n${COMMENTS}" \
+            --arg projectKey "$JIRA_PROJECT_KEY" \
+            '{
+              fields: {
+                project: { key: $projectKey },
+                summary: $summary,
+                description: $description,
+                issuetype: { name: "Bug" }
+              }
+            }')
+          
+          # Make API request to create Jira issue
+          curl -X POST \
+            -H "Authorization: Basic $(echo -n $JIRA_USER_EMAIL:$CONFLUENCE_API_TOKEN | base64)" \
+            -H "Content-Type: application/json" \
+            --data "$JIRA_PAYLOAD" \
+            $JIRA_BASE_URL/rest/api/3/issue
