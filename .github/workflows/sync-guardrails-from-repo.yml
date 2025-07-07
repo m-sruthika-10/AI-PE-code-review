@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
-          #token: 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 # Use PAT from secrets
+          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT from secrets
 
       - name: Configure Git credentials
         run: |
@@ -32,9 +32,9 @@ jobs:
 
       - name: Fetch guardrails.txt from source repository
         env:
-          SOURCE_REPO: 'm-sruthika-10/main' # Replace with actual source repo name
+          SOURCE_REPO: 'm-sruthika-10/main' # Correct source repository
           SOURCE_BRANCH: 'dev_test' # Source branch
-          REPO_ACCESS_TOKEN: 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
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -x # Enable verbose logging
           # Fetch guardrails.txt
@@ -54,9 +54,9 @@ jobs:
           fi
 
       - name: Commit guardrails.txt and create PR
-        id: commit-changes # Add ID to reference outputs
+        id: commit-changes
         env:
-          REPO_ACCESS_TOKEN: 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
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -x # Enable verbose logging
           # Create a new branch with a unique name
@@ -81,7 +81,7 @@ jobs:
         if: steps.commit-changes.outputs.branch_name != '' # Only run if branch was created
         uses: peter-evans/create-pull-request@v7
         with:
-          token: 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 # Use PAT
+          token: ${{ secrets.REPO_ACCESS_TOKEN }} # Use PAT
           branch: ${{ steps.commit-changes.outputs.branch_name }} # Use branch name from previous step
           base: main
           title: "Sync guardrails.txt from $SOURCE_REPO dev_test branch"
