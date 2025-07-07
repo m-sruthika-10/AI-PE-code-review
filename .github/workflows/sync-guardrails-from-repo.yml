@@ -54,6 +54,11 @@ jobs:
         run: |
           set -x
           BRANCH_NAME="sync-guardrails-$(date +%s)"
+          # Check if branch already exists in remote
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists in remote, generating new branch name"
+            BRANCH_NAME="sync-guardrails-$(date +%s)-$(openssl rand -hex 4)"
+          fi
           git checkout -b "$BRANCH_NAME"
           git add guardrails.txt
           if git diff --staged --quiet; then
@@ -86,9 +91,10 @@ jobs:
           body: |
             Automated sync of guardrails.txt from m-sruthika-10/main dev_test branch.
           delete-branch: true
-          # Prevent the action from resetting the branch
           commit-message: "Sync guardrails.txt from m-sruthika-10/main dev_test branch"
           add-paths: guardrails.txt
+          # Disable force-push to respect branch protection rules
+          push-to-fork: false
 
       - name: Auto-merge Pull Request
         if: steps.create-pr.outputs.pull-request-number != ''
