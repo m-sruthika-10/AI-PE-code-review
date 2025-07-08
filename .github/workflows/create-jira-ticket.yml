@@ -44,7 +44,7 @@ jobs:
         env:
           JIRA_BASE_URL: https://sruthikaprodapt.atlassian.net
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
         run: |
           # Extract comments for the Jira description
@@ -61,13 +61,13 @@ jobs:
                 description: $description,
                 issuetype: { name: "Submit a request or incident" }
                 # Add required fields below based on createmeta output, e.g.:
+                # ,customfield_10010: { id: "123" }
                 # ,priority: { name: "Medium" }
-                # ,customfield_10010: { value: "Some value" }
               }
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
           curl -v -X POST \
-            -H "Authorization: Basic $(echo -n $JIRA_USER_EMAIL:$CONFLUENCE_API_TOKEN | base64)" \
+            -H "Authorization: Basic $(echo -n $JIRA_USER_EMAIL:$JIRA_API_TOKEN | base64)" \
             -H "Content-Type: application/json" \
             --data "$JIRA_PAYLOAD" \
             $JIRA_BASE_URL/rest/api/3/issue
