@@ -49,8 +49,8 @@ jobs:
           SERVICE_DESK_ID: 2
           REQUEST_TYPE_ID: 10001
         run: |
-          # Extract comments for the Jira description
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[]' | jq -s -R '.')
+          # Parse comments as a JSON array
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.')
           # Construct ADF description
           DESCRIPTION=$(jq -n \
             --arg pr_url "${{ github.event.pull_request.html_url }}" \
@@ -61,12 +61,24 @@ jobs:
               content: [
                 {
                   type: "paragraph",
-                  content: [{ type: "text", text: "This issue was created based on a code review comment from a pull request. Details: \($pr_url)" }]
+                  content: [
+                    {
+                      type: "text",
+                      text: "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                    }
+                  ]
                 }
-              ] + ($comments | split("\n") | map(select(. != "") | {
-                type: "paragraph",
-                content: [{ type: "text", text: . }]
-              }))
+              ] + ($comments | map(
+                select(. != "") | {
+                  type: "paragraph",
+                  content: [
+                    {
+                      type: "text",
+                      text: .
+                    }
+                  ]
+                }
+              ))
             }')
           # Construct Jira payload
           JIRA_PAYLOAD=$(jq -n \
