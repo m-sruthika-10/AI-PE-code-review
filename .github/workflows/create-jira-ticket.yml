@@ -1,128 +1,73 @@
-name: Create Jira Ticket from Copilot Code Review
-
+name: Create Jira Ticket for All PR Review Comments
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   create-jira-ticket:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      # Checkout the repository to access code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get PR review comments
+      # Fetch all PR review comments
+      - name: Get PR Review Comments
         id: get-comments
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
             const comments = await github.rest.pulls.listReviewComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number
+              pull_number: context.payload.pull_request.number
             });
-            const violationComments = comments.data.filter(comment =>
-              comment.body.toLowerCase().includes('suggestion') ||
-              comment.body.toLowerCase().includes('issue') ||
-              comment.body.toLowerCase().includes('problem') ||
-              comment.body.toLowerCase().includes('linter') ||
-              comment.body.toLowerCase().includes('style') ||
-              comment.body.toLowerCase().includes('documentation') ||
-              comment.body.toLowerCase().includes('eslint') ||
-              comment.body.toLowerCase().includes('standards violation') ||
-              comment.body.toLowerCase().includes('coding standard') ||
-              comment.body.toLowerCase().includes('global variable') ||
-              comment.body.toLowerCase().includes('side effects')
-            ).map(c => c.body);
-            return JSON.stringify(violationComments);
-
-      - name: Create Jira issue
-        if: steps.get-comments.outputs.result != '[]'
+            // Include all comments without filtering
+            const allComments = comments.data
+              .map(comment => ({
+                body: comment.body,
+                id: comment.id,
+                path: comment.path,
+                line: comment.line
+              }));
+            // Store comments as JSON for the next step
+            core.setOutput('all_comments', JSON.stringify(allComments));
         env:
-          JIRA_BASE_URL: https://sruthikaprodapt.atlassian.net
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          JIRA_PROJECT_KEY: APB
-          SERVICE_DESK_ID: "2"
-          REQUEST_TYPE_ID: "10001"
-        run: |
-          # Debug: Safely print raw comments using printf to avoid shell interpretation
-          printf "Raw comments: %q\n" "${{ steps.get-comments.outputs.result }}"
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
-          # Validate that the input is valid JSON before processing
-          if ! echo "${{ steps.get-comments.outputs.result }}" | jq -e . > /dev/null 2>&1; then
-            echo "Error: Raw comments are not valid JSON"
-            exit 1
-          fi
-
-          # Parse comments as a JSON array with fallback
-          COMMENTS=$(echo "${{ steps.get-comments.outputs.result }}" | jq -r '. | if type == "array" then . else [.] end' || echo "[]")
-          printf "Parsed COMMENTS: %q\n" "$COMMENTS"
-
-          # Construct ADF description, escaping special characters
-          DESCRIPTION=$(echo "$COMMENTS" | jq -R -s -c \
-            --arg pr_url "${{ github.event.pull_request.html_url }}" \
-            '{
-              "version": 1,
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
-                    }
-                  ]
-                }
-              ] + (split("\n") | map(select(. != "") | {
-                "type": "paragraph",
-                "content": [
-                  {
-                    "type": "text",
-                    "text": .
+      # Create Jira ticket for each comment
+      - name: Create Jira Service Desk Tickets
+        if: steps.get-comments.outputs.all_comments != '[]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allComments = JSON.parse('${{ steps.get-comments.outputs.all_comments }}');
+            for (const comment of allComments) {
+              const response = await fetch('https://sruthikaprodapt.atlassian.net/rest/servicedeskapi/request', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Basic ${{ secrets.JIRA_API_TOKEN }}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  serviceDeskId: '2',
+                  requestTypeId: '10001',
+                  requestFieldValues: {
+                    summary: 'PR Review Comment',
+                    description: `**Comment Details**: ${comment.body}\n\n` +
+                                 `**File**: ${comment.path}\n` +
+                                 `**Line**: ${comment.line || 'N/A'}\n` +
+                                 `**Repository**: ${{ github.repository }}\n` +
+                                 `**Pull Request**: ${{ github.event.pull_request.html_url }}\n` +
+                                 `**Comment ID**: ${comment.id}\n` +
+                                 `**Commit SHA**: ${{ github.sha }}\n` +
+                                 `Created by GitHub Action`
                   }
-                ]
-              }))
-            }' || { echo "Error: Failed to construct DESCRIPTION"; exit 1; })
-          printf "DESCRIPTION: %q\n" "$DESCRIPTION"
-
-          # Validate DESCRIPTION
-          if ! echo "$DESCRIPTION" | jq -e . > /dev/null 2>&1; then
-            echo "Error: DESCRIPTION is not valid JSON"
-            exit 1
-          fi
-
-          # Construct Jira payload
-          JIRA_PAYLOAD=$(jq -n \
-            --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
-            --argjson description "$DESCRIPTION" \
-            --arg serviceDeskId "$SERVICE_DESK_ID" \
-            --arg requestTypeId "$REQUEST_TYPE_ID" \
-            --arg projectKey "$JIRA_PROJECT_KEY" \
-            '{
-              "serviceDeskId": $serviceDeskId,
-              "requestTypeId": $requestTypeId,
-              "requestFieldValues": {
-                "summary": $summary,
-                "description": $description,
-                "project": { "key": $projectKey }
+                })
+              });
+              if (!response.ok) {
+                core.setFailed(`Failed to create Jira ticket for comment ${comment.id}: ${response.statusText}`);
               }
-            }' | jq -c . || { echo "Error: Failed to construct JIRA_PAYLOAD"; exit 1; })
-          printf "JIRA_PAYLOAD: %q\n" "$JIRA_PAYLOAD"
-
-          # Validate JIRA_PAYLOAD
-          if ! echo "$JIRA_PAYLOAD" | jq -e . > /dev/null 2>&1; then
-            echo "Error: JIRA_PAYLOAD is not valid JSON"
-            exit 1
-          fi
-
-          # Debug: Print final payload
-          printf "Final JIRA_PAYLOAD: %q\n" "$JIRA_PAYLOAD"
-
-          # Make the API call
-          curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$JIRA_PAYLOAD" \
-            "$JIRA_BASE_URL/rest/servicedeskapi/request" || { echo "Error: API call failed"; exit 1; }
+            }
+        env:
+          JIRA_AUTH_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
