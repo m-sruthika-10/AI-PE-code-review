@@ -50,14 +50,14 @@ jobs:
           # Debug: Print raw comments
           echo "Raw comments: ${{ steps.get-comments.outputs.result }}"
 
-          # Parse comments as a JSON array
+          # Parse comments as a JSON array with fallback
           COMMENTS=$(echo "${{ steps.get-comments.outputs.result }}" | jq -r '. | if type == "array" then . else [.] end' || echo "[]")
           echo "COMMENTS=$COMMENTS"
 
-          # Construct ADF description
+          # Construct ADF description with fallback
           DESCRIPTION=$(jq -n \
             --arg pr_url "${{ github.event.pull_request.html_url }}" \
-            --argjson comments "$COMMENTS" \
+            --argjson comments "${COMMENTS:-[]}" \
             '{
               "version": 1,
               "type": "doc",
@@ -84,28 +84,37 @@ jobs:
           echo "DESCRIPTION=$DESCRIPTION"
 
           # Validate DESCRIPTION
-          echo "$DESCRIPTION" | jq . > /dev/null || { echo "Error: Invalid DESCRIPTION JSON"; exit 1; }
+          if ! echo "$DESCRIPTION" | jq -e . > /dev/null 2>&1; then
+            echo "Error: DESCRIPTION is not valid JSON"
+            exit 1
+          fi
 
           # Construct Jira payload
           JIRA_PAYLOAD=$(jq -n \
             --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
             --argjson description "$DESCRIPTION" \
-            --arg projectKey "$JIRA_PROJECT_KEY" \
             --arg serviceDeskId "$SERVICE_DESK_ID" \
             --arg requestTypeId "$REQUEST_TYPE_ID" \
+            --arg projectKey "$JIRA_PROJECT_KEY" \
             '{
               "serviceDeskId": $serviceDeskId,
-              "requestTypeId": $requestTypeId",
-              "fields": {
-                "project": { "key": $projectKey },
+              "requestTypeId": $requestTypeId,
+              "requestFieldValues": {
                 "summary": $summary,
-                "description": $description
+                "description": $description,
+                "project": { "key": $projectKey }
               }
             }' | jq -c . || { echo "Error: Failed to construct JIRA_PAYLOAD"; exit 1; })
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
 
           # Validate JIRA_PAYLOAD
-          echo "$JIRA_PAYLOAD" | jq . > /dev/null || { echo "Error: Invalid JIRA_PAYLOAD JSON"; exit 1; }
+          if ! echo "$JIRA_PAYLOAD" | jq -e . > /dev/null 2>&1; then
+            echo "Error: JIRA_PAYLOAD is not valid JSON"
+            exit 1
+          fi
+
+          # Debug: Print final payload
+          echo "Final JIRA_PAYLOAD=$JIRA_PAYLOAD"
 
           # Make the API call
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
