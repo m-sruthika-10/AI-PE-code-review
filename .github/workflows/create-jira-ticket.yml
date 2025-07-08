@@ -11,62 +11,77 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Fetch all PR review comments
+      # Fetch all PR review comments with debugging
       - name: Get PR Review Comments
         id: get-comments
         uses: actions/github-script@v7
         with:
           script: |
-            const comments = await github.rest.pulls.listReviewComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
-            });
-            // Include all comments without filtering
-            const allComments = comments.data
-              .map(comment => ({
-                body: comment.body,
-                id: comment.id,
-                path: comment.path,
-                line: comment.line
-              }));
-            // Store comments as JSON for the next step
-            core.setOutput('all_comments', JSON.stringify(allComments));
+            const core = require('@actions/core');
+            try {
+              const comments = await github.rest.pulls.listReviewComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number
+              });
+              console.log(`Fetched ${comments.data.length} comments`);
+              const allComments = comments.data.map(comment => {
+                console.log(`Processing comment ID: ${comment.id}`);
+                return {
+                  body: comment.body || 'No comment body',
+                  id: comment.id,
+                  path: comment.path || 'No path',
+                  line: comment.line || null
+                };
+              });
+              core.setOutput('all_comments', JSON.stringify(allComments));
+            } catch (error) {
+              console.error('Error fetching comments:', error);
+              core.setFailed(`Failed to fetch comments: ${error.message}`);
+            }
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       # Create Jira ticket for each comment
       - name: Create Jira Service Desk Tickets
-        if: steps.get-comments.outputs.all_comments != '[]'
+        if: steps.get-comments.outcomes.success == true && steps.get-comments.outputs.all_comments != '[]'
         uses: actions/github-script@v7
         with:
           script: |
+            const core = require('@actions/core');
             const allComments = JSON.parse('${{ steps.get-comments.outputs.all_comments }}');
             for (const comment of allComments) {
-              const response = await fetch('https://sruthikaprodapt.atlassian.net/rest/servicedeskapi/request', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Basic ${{ secrets.JIRA_API_TOKEN }}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  serviceDeskId: '2',
-                  requestTypeId: '10001',
-                  requestFieldValues: {
-                    summary: 'PR Review Comment',
-                    description: `**Comment Details**: ${comment.body}\n\n` +
-                                 `**File**: ${comment.path}\n` +
-                                 `**Line**: ${comment.line || 'N/A'}\n` +
-                                 `**Repository**: ${{ github.repository }}\n` +
-                                 `**Pull Request**: ${{ github.event.pull_request.html_url }}\n` +
-                                 `**Comment ID**: ${comment.id}\n` +
-                                 `**Commit SHA**: ${{ github.sha }}\n` +
-                                 `Created by GitHub Action`
-                  }
-                })
-              });
-              if (!response.ok) {
-                core.setFailed(`Failed to create Jira ticket for comment ${comment.id}: ${response.statusText}`);
+              console.log(`Creating Jira ticket for comment ID: ${comment.id}`);
+              try {
+                const response = await fetch('https://sruthikaprodapt.atlassian.net/rest/servicedeskapi/request', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Basic ${{ secrets.JIRA_API_TOKEN }}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    serviceDeskId: '2',
+                    requestTypeId: '10001',
+                    requestFieldValues: {
+                      summary: 'PR Review Comment',
+                      description: `**Comment Details**: ${comment.body}\n\n` +
+                                  `**File**: ${comment.path}\n` +
+                                  `**Line**: ${comment.line || 'N/A'}\n` +
+                                  `**Repository**: ${{ github.repository }}\n` +
+                                  `**Pull Request**: ${{ github.event.pull_request.html_url }}\n` +
+                                  `**Comment ID**: ${comment.id}\n` +
+                                  `**Commit SHA**: ${{ github.sha }}\n` +
+                                  `Created by GitHub Action`
+                    }
+                  })
+                });
+                if (!response.ok) {
+                  throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+                }
+                console.log(`Jira ticket created for comment ID: ${comment.id}`);
+              } catch (error) {
+                console.error(`Failed to create Jira ticket for comment ${comment.id}:`, error);
+                core.setFailed(`Failed to create Jira ticket for comment ${comment.id}: ${error.message}`);
               }
             }
         env:
