@@ -56,25 +56,25 @@ jobs:
             --arg pr_url "${{ github.event.pull_request.html_url }}" \
             --argjson comments "$COMMENTS" \
             '{
-              type: "doc",
-              version: 1,
-              content: [
+              "type": "doc",
+              "version": 1,
+              "content": [
                 {
-                  type: "paragraph",
-                  content: [
+                  "type": "paragraph",
+                  "content": [
                     {
-                      type: "text",
-                      text: "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                      "type": "text",
+                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
                     }
                   ]
                 }
               ] + ($comments | map(
-                select(. != "") | {
-                  type: "paragraph",
-                  content: [
+                select(length > 0) | {
+                  "type": "paragraph",
+                  "content": [
                     {
-                      type: "text",
-                      text: .
+                      "type": "text",
+                      "text": .
                     }
                   ]
                 }
@@ -88,14 +88,14 @@ jobs:
             --arg serviceDeskId "$SERVICE_DESK_ID" \
             --arg requestTypeId "$REQUEST_TYPE_ID" \
             '{
-              fields: {
-                project: { key: $projectKey },
-                summary: $summary,
-                description: $description,
-                issuetype: { name: "Submit a request or incident" }
+              "fields": {
+                "project": { "key": $projectKey },
+                "summary": $summary,
+                "description": $description,
+                "issuetype": { "name": "Submit a request or incident" }
               },
-              serviceDeskId: $serviceDeskId,
-              requestTypeId: $requestTypeId
+              "serviceDeskId": $serviceDeskId,
+              "requestTypeId": $requestTypeId
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
