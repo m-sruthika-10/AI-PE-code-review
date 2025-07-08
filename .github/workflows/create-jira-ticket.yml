@@ -8,11 +8,9 @@ jobs:
   create-jira-ticket:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Fetch PR review comments
       - name: Get PR review comments
         id: get-comments
         uses: actions/github-script@v7
@@ -24,13 +22,21 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number
             });
-            // Filter comments that indicate standards violations (customize this logic)
+            console.log('All comments:', comments.data.map(c => ({ body: c.body, user: c.user.login })));
             const violationComments = comments.data.filter(comment =>
-              comment.body.includes('standards violation') || comment.body.includes('coding standard')
+              comment.body.toLowerCase().includes('suggestion') ||
+              comment.body.toLowerCase().includes('issue') ||
+              comment.body.toLowerCase().includes('problem') ||
+              comment.body.toLowerCase().includes('linter') ||
+              comment.body.toLowerCase().includes('style') ||
+              comment.body.toLowerCase().includes('documentation') ||
+              comment.body.toLowerCase().includes('eslint') ||
+              comment.body.toLowerCase().includes('standards violation') ||
+              comment.body.toLowerCase().includes('coding standard')
             );
+            console.log('Filtered violation comments:', violationComments);
             return violationComments;
 
-      # Create Jira ticket if violations are found
       - name: Create Jira issue
         if: steps.get-comments.outputs.result != '[]'
         env:
@@ -39,13 +45,10 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
         run: |
-          # Parse the comments from the previous step
           COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[] | .body')
-          
-          # Create JSON payload for Jira issue
           JIRA_PAYLOAD=$(jq -n \
-            --arg summary "Coding Standards Violation in PR #${{ github.event.pull_request.number }}" \
-            --arg description "Found coding standards violations in PR: ${{ github.event.pull_request.html_url }}\n\nComments:\n${COMMENTS}" \
+            --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
+            --arg description "Found issues in PR: ${{ github.event.pull_request.html_url }}\n\nComments:\n${COMMENTS}" \
             --arg projectKey "$JIRA_PROJECT_KEY" \
             '{
               fields: {
@@ -55,9 +58,8 @@ jobs:
                 issuetype: { name: "Bug" }
               }
             }')
-          
-          # Make API request to create Jira issue
-          curl -X POST \
+          echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
+          curl -v -X POST \
             -H "Authorization: Basic $(echo -n $JIRA_USER_EMAIL:$CONFLUENCE_API_TOKEN | base64)" \
             -H "Content-Type: application/json" \
             --data "$JIRA_PAYLOAD" \
