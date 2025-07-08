@@ -58,27 +58,31 @@ jobs:
             '{
               "type": "doc",
               "version": 1,
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+              "content": (
+                [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                      }
+                    ]
+                  }
+                ] + (
+                  $comments | map(
+                    select(length > 0) | {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": .
+                        }
+                      ]
                     }
-                  ]
-                }
-              ] + ($comments | map(
-                select(length > 0) | {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": .
-                    }
-                  ]
-                }
-              ))
+                  )
+                )
+              )
             }')
           # Construct Jira payload
           JIRA_PAYLOAD=$(jq -n \
@@ -97,6 +101,7 @@ jobs:
               "serviceDeskId": $serviceDeskId,
               "requestTypeId": $requestTypeId
             }')
+          echo "COMMENTS=$COMMENTS"
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
             -H "Content-Type: application/json" \
