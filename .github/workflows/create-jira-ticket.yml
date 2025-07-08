@@ -46,24 +46,44 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
+          SERVICE_DESK_ID: 2
+          REQUEST_TYPE_ID: 10001
         run: |
           # Extract comments for the Jira description
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[] | .body')
-          # Construct Jira payload with valid issue type
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[] | .body' | jq -s .)
+          # Construct ADF description
+          DESCRIPTION=$(jq -n \
+            --arg pr_url "${{ github.event.pull_request.html_url }}" \
+            --argjson comments "$COMMENTS" \
+            '{
+              type: "doc",
+              version: 1,
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "This issue was created based on a code review comment from a pull request. Details: \($pr_url)" }]
+                }
+              ] + ($comments | map({
+                type: "paragraph",
+                content: [{ type: "text", text: . }]
+              }) | .[])
+            }')
+          # Construct Jira payload with valid issue type and required fields
           JIRA_PAYLOAD=$(jq -n \
             --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
-            --arg description "Found issues in PR: ${{ github.event.pull_request.html_url }}\n\nComments:\n${COMMENTS}" \
+            --argjson description "$DESCRIPTION" \
             --arg projectKey "$JIRA_PROJECT_KEY" \
+            --arg serviceDeskId "$SERVICE_DESK_ID" \
+            --arg requestTypeId "$REQUEST_TYPE_ID" \
             '{
               fields: {
                 project: { key: $projectKey },
                 summary: $summary,
                 description: $description,
                 issuetype: { name: "Submit a request or incident" }
-                # Add required fields below based on createmeta output, e.g.:
-                # ,customfield_10010: { id: "123" }
-                # ,priority: { name: "Medium" }
-              }
+              },
+              serviceDeskId: $serviceDeskId,
+              requestTypeId: $requestTypeId
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
           curl -v -u $JIRA_USER_EMAIL:$JIRA_API_TOKEN \
