@@ -32,7 +32,9 @@ jobs:
               comment.body.toLowerCase().includes('documentation') ||
               comment.body.toLowerCase().includes('eslint') ||
               comment.body.toLowerCase().includes('standards violation') ||
-              comment.body.toLowerCase().includes('coding standard')
+              comment.body.toLowerCase().includes('coding standard') ||
+              comment.body.toLowerCase().includes('global variable') ||
+              comment.body.toLowerCase().includes('side effects')
             );
             console.log('Filtered violation comments:', violationComments);
             return violationComments;
@@ -55,7 +57,10 @@ jobs:
                 project: { key: $projectKey },
                 summary: $summary,
                 description: $description,
-                issuetype: { name: "Bug" }
+                issuetype: { name: "Submit a request or incident" }
+                // Add required fields here, e.g.:
+                // ,priority: { name: "Medium" }
+                // ,assignee: { accountId: "replace-with-account-id" }
               }
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
