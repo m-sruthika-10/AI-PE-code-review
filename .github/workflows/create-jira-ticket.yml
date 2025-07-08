@@ -33,6 +33,7 @@ jobs:
                   line: comment.line || null
                 };
               });
+              console.log(`Setting output all_comments: ${JSON.stringify(allComments)}`);
               core.setOutput('all_comments', JSON.stringify(allComments));
             } catch (error) {
               console.error('Error fetching comments:', error);
@@ -41,20 +42,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
+      # Debug output to verify all_comments
+      - name: Debug Output
+        run: |
+          echo "all_comments: ${{ steps.get-comments.outputs.all_comments }}"
+
       # Create Jira ticket for each comment
       - name: Create Jira Service Desk Tickets
-        if: steps.get-comments.outcomes.success == true && steps.get-comments.outputs.all_comments != '[]'
+        if: steps.get-comments.outputs.all_comments != '[]'
         uses: actions/github-script@v7
         with:
           script: |
             try {
               const allComments = JSON.parse('${{ steps.get-comments.outputs.all_comments }}');
+              console.log(`Processing ${allComments.length} comments for Jira tickets`);
               for (const comment of allComments) {
                 console.log(`Creating Jira ticket for comment ID: ${comment.id}`);
                 const response = await fetch('https://sruthikaprodapt.atlassian.net/rest/servicedeskapi/request', {
                   method: 'POST',
                   headers: {
-                    'Authorization': `Basic ${{ secrets.JIRA_API_TOKEN }}`,
+                    'Authorization': `Basic ${{ secrets.JIRA_API_TOKEN }}',
                     'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
