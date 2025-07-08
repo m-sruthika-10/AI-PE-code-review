@@ -22,7 +22,6 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number
             });
-            console.log('All comments:', comments.data.map(c => ({ body: c.body, user: c.user.login })));
             const violationComments = comments.data.filter(comment =>
               comment.body.toLowerCase().includes('suggestion') ||
               comment.body.toLowerCase().includes('issue') ||
@@ -36,7 +35,6 @@ jobs:
               comment.body.toLowerCase().includes('global variable') ||
               comment.body.toLowerCase().includes('side effects')
             ).map(c => c.body);
-            console.log('Filtered violation comments:', violationComments);
             return JSON.stringify(violationComments);
 
       - name: Create Jira issue
@@ -46,11 +44,14 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
-          SERVICE_DESK_ID: "2" # Verify this ID in Jira Service Desk settings
-          REQUEST_TYPE_ID: "10001" # Verify this ID in Jira Request Type settings
+          SERVICE_DESK_ID: "2"
+          REQUEST_TYPE_ID: "10001"
         run: |
-          # Parse comments as a JSON array, flatten if needed
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '. | if type == "array" then . else [.] end')
+          # Debug: Print raw comments
+          echo "Raw comments: ${{ steps.get-comments.outputs.result }}"
+
+          # Parse comments as a JSON array
+          COMMENTS=$(echo "${{ steps.get-comments.outputs.result }}" | jq -r '. | if type == "array" then . else [.] end' || echo "[]")
           echo "COMMENTS=$COMMENTS"
 
           # Construct ADF description
@@ -70,17 +71,15 @@ jobs:
                     }
                   ]
                 }
-              ] + ($comments | map(
-                select(. != "") | {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": .
-                    }
-                  ]
-                }
-              ))
+              ] + ($comments | map({
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": .
+                  }
+                ]
+              }))
             }' | jq -c . || { echo "Error: Failed to construct DESCRIPTION"; exit 1; })
           echo "DESCRIPTION=$DESCRIPTION"
 
@@ -96,7 +95,7 @@ jobs:
             --arg requestTypeId "$REQUEST_TYPE_ID" \
             '{
               "serviceDeskId": $serviceDeskId,
-              "requestTypeId": $requestTypeId,
+              "requestTypeId": $requestTypeId",
               "fields": {
                 "project": { "key": $projectKey },
                 "summary": $summary,
