@@ -49,62 +49,39 @@ jobs:
           SERVICE_DESK_ID: "2" # Verify this ID in Jira Service Desk settings
           REQUEST_TYPE_ID: "10001" # Verify this ID in Jira Request Type settings
         run: |
-          # Parse comments as a JSON array, handle empty case
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.' | jq -s '.' || echo '[]')
+          # Parse comments as a JSON array, flatten if needed
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '. | if type == "array" then . else [.] end')
           echo "COMMENTS=$COMMENTS"
 
-          # If COMMENTS is empty, set a fallback description
-          if [ "$COMMENTS" = "[]" ]; then
-            DESCRIPTION=$(jq -n \
-              --arg pr_url "${{ github.event.pull_request.html_url }}" \
-              '{
-                "version": 1,
-                "type": "doc",
-                "content": [
-                  {
-                    "type": "paragraph",
-                    "content": [
-                      {
-                        "type": "text",
-                        "text": "This issue was created based on a code review from a pull request. No specific comments filtered. Details: \($pr_url)"
-                      }
-                    ]
-                  }
-                ]
-              }' | jq -c .)
-          else
-            # Construct ADF description with comments
-            DESCRIPTION=$(jq -n \
-              --arg pr_url "${{ github.event.pull_request.html_url }}" \
-              --argjson comments "$COMMENTS" \
-              '{
-                "version": 1,
-                "type": "doc",
-                "content": [
-                  {
-                    "type": "paragraph",
-                    "content": [
-                      {
-                        "type": "text",
-                        "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
-                      }
-                    ]
-                  }
-                ] + (
-                  $comments | map(
-                    select(. != "") | {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "text",
-                          "text": .
-                        }
-                      ]
+          # Construct ADF description
+          DESCRIPTION=$(jq -n \
+            --arg pr_url "${{ github.event.pull_request.html_url }}" \
+            --argjson comments "$COMMENTS" \
+            '{
+              "version": 1,
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
                     }
-                  )
-                )
-              }' | jq -c .)
-          fi
+                  ]
+                }
+              ] + ($comments | map(
+                select(. != "") | {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": .
+                    }
+                  ]
+                }
+              ))
+            }' | jq -c . || { echo "Error: Failed to construct DESCRIPTION"; exit 1; })
           echo "DESCRIPTION=$DESCRIPTION"
 
           # Validate DESCRIPTION
@@ -125,7 +102,7 @@ jobs:
                 "summary": $summary,
                 "description": $description
               }
-            }' | jq -c .)
+            }' | jq -c . || { echo "Error: Failed to construct JIRA_PAYLOAD"; exit 1; })
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
 
           # Validate JIRA_PAYLOAD
