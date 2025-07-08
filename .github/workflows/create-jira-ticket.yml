@@ -1,4 +1,4 @@
-name: Create Jira Ticket from Copihen
+name: Create Jira Ticket from Copilot Code Review
 
 on:
   pull_request_review:
@@ -46,43 +46,69 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
-          SERVICE_DESK_ID: "2" # Verify this ID
-          REQUEST_TYPE_ID: "10001" # Verify this ID
+          SERVICE_DESK_ID: "2" # Verify this ID in Jira Service Desk settings
+          REQUEST_TYPE_ID: "10001" # Verify this ID in Jira Request Type settings
         run: |
-          # Parse comments as a JSON array
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.' | jq -s '.')
+          # Parse comments as a JSON array, handle empty case
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.' | jq -s '.' || echo '[]')
+          echo "COMMENTS=$COMMENTS"
 
-          # Construct simplified ADF description
-          DESCRIPTION=$(jq -n \
-            --arg pr_url "${{ github.event.pull_request.html_url }}" \
-            --argjson comments "$COMMENTS" \
-            '{
-              "version": 1,
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
-                    }
-                  ]
-                }
-              ] + (
-                $comments | map(
-                  select(. != "") | {
+          # If COMMENTS is empty, set a fallback description
+          if [ "$COMMENTS" = "[]" ]; then
+            DESCRIPTION=$(jq -n \
+              --arg pr_url "${{ github.event.pull_request.html_url }}" \
+              '{
+                "version": 1,
+                "type": "doc",
+                "content": [
+                  {
                     "type": "paragraph",
                     "content": [
                       {
                         "type": "text",
-                        "text": .
+                        "text": "This issue was created based on a code review from a pull request. No specific comments filtered. Details: \($pr_url)"
                       }
                     ]
                   }
+                ]
+              }' | jq -c .)
+          else
+            # Construct ADF description with comments
+            DESCRIPTION=$(jq -n \
+              --arg pr_url "${{ github.event.pull_request.html_url }}" \
+              --argjson comments "$COMMENTS" \
+              '{
+                "version": 1,
+                "type": "doc",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                      }
+                    ]
+                  }
+                ] + (
+                  $comments | map(
+                    select(. != "") | {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": .
+                        }
+                      ]
+                    }
+                  )
                 )
-              )
-            }' | jq -c .)
+              }' | jq -c .)
+          fi
+          echo "DESCRIPTION=$DESCRIPTION"
+
+          # Validate DESCRIPTION
+          echo "$DESCRIPTION" | jq . > /dev/null || { echo "Error: Invalid DESCRIPTION JSON"; exit 1; }
 
           # Construct Jira payload
           JIRA_PAYLOAD=$(jq -n \
@@ -100,15 +126,13 @@ jobs:
                 "description": $description
               }
             }' | jq -c .)
-
-          # Debug: Print the payload
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
 
-          # Validate JSON
-          echo "$JIRA_PAYLOAD" | jq . || exit 1
+          # Validate JIRA_PAYLOAD
+          echo "$JIRA_PAYLOAD" | jq . > /dev/null || { echo "Error: Invalid JIRA_PAYLOAD JSON"; exit 1; }
 
           # Make the API call
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$JIRA_PAYLOAD" \
-            "$JIRA_BASE_URL/rest/servicedeskapi/request"
+            "$JIRA_BASE_URL/rest/servicedeskapi/request" || { echo "Error: API call failed"; exit 1; }
