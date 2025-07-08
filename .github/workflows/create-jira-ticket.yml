@@ -1,4 +1,4 @@
-name: Create Jira Ticket from Copilot Code Review
+name: Create Jira Ticket from Copihen
 
 on:
   pull_request_review:
@@ -46,44 +46,44 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
-          SERVICE_DESK_ID: "2"
-          REQUEST_TYPE_ID: "10001"
+          SERVICE_DESK_ID: "2" # Verify this ID
+          REQUEST_TYPE_ID: "10001" # Verify this ID
         run: |
           # Parse comments as a JSON array
-          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.')
-          # Construct ADF description
+          COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.' | jq -s '.')
+
+          # Construct simplified ADF description
           DESCRIPTION=$(jq -n \
             --arg pr_url "${{ github.event.pull_request.html_url }}" \
             --argjson comments "$COMMENTS" \
             '{
-              "type": "doc",
               "version": 1,
-              "content": (
-                [
-                  {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                    }
+                  ]
+                }
+              ] + (
+                $comments | map(
+                  select(. != "") | {
                     "type": "paragraph",
                     "content": [
                       {
                         "type": "text",
-                        "text": "This issue was created based on a code review comment from a pull request. Details: \($pr_url)"
+                        "text": .
                       }
                     ]
                   }
-                ] + (
-                  $comments | map(
-                    select(length > 0) | {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "text",
-                          "text": .
-                        }
-                      ]
-                    }
-                  )
                 )
               )
-            }')
+            }' | jq -c .)
+
           # Construct Jira payload
           JIRA_PAYLOAD=$(jq -n \
             --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
@@ -92,18 +92,22 @@ jobs:
             --arg serviceDeskId "$SERVICE_DESK_ID" \
             --arg requestTypeId "$REQUEST_TYPE_ID" \
             '{
+              "serviceDeskId": $serviceDeskId,
+              "requestTypeId": $requestTypeId,
               "fields": {
                 "project": { "key": $projectKey },
                 "summary": $summary,
-                "description": $description,
-                "issuetype": { "name": "Submit a request or incident" }
-              },
-              "serviceDeskId": $serviceDeskId,
-              "requestTypeId": $requestTypeId
-            }')
-          echo "COMMENTS=$COMMENTS"
-          echo "DESCRIPTION=$DESCRIPTION"
+                "description": $description
+              }
+            }' | jq -c .)
+
+          # Debug: Print the payload
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
+
+          # Validate JSON
+          echo "$JIRA_PAYLOAD" | jq . || exit 1
+
+          # Make the API call
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$JIRA_PAYLOAD" \
