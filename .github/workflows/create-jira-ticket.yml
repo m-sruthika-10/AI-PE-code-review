@@ -47,7 +47,9 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
         run: |
+          # Extract comments for the Jira description
           COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.[] | .body')
+          # Construct Jira payload with valid issue type
           JIRA_PAYLOAD=$(jq -n \
             --arg summary "Code Review Issues in PR #${{ github.event.pull_request.number }}" \
             --arg description "Found issues in PR: ${{ github.event.pull_request.html_url }}\n\nComments:\n${COMMENTS}" \
@@ -58,9 +60,9 @@ jobs:
                 summary: $summary,
                 description: $description,
                 issuetype: { name: "Submit a request or incident" }
-                // Add required fields here, e.g.:
-                // ,priority: { name: "Medium" }
-                // ,assignee: { accountId: "replace-with-account-id" }
+                # Add required fields below based on createmeta output, e.g.:
+                # ,priority: { name: "Medium" }
+                # ,customfield_10010: { value: "Some value" }
               }
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
