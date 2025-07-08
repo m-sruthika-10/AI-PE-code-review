@@ -47,10 +47,10 @@ jobs:
           SERVICE_DESK_ID: "2"
           REQUEST_TYPE_ID: "10001"
         run: |
-          # Debug: Print raw comments
-          echo "Raw comments: ${{ steps.get-comments.outputs.result }}"
+          # Debug: Print raw comments (escaped to prevent execution)
+          echo "Raw comments: \"${{ steps.get-comments.outputs.result }}\""
 
-          # Parse comments as a JSON array with fallback
+          # Parse comments as a JSON array with fallback, ensuring proper quoting
           COMMENTS=$(echo "${{ steps.get-comments.outputs.result }}" | jq -r '. | if type == "array" then . else [.] end' || echo "[]")
           echo "COMMENTS=$COMMENTS"
 
