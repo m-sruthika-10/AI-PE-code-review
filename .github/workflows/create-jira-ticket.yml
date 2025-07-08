@@ -66,8 +66,7 @@ jobs:
               }
             }')
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
-          curl -v -X POST \
-            -H "Authorization: Basic $(echo -n $JIRA_USER_EMAIL:$JIRA_API_TOKEN | base64)" \
+          curl -v -u $JIRA_USER_EMAIL:$JIRA_API_TOKEN \
             -H "Content-Type: application/json" \
-            --data "$JIRA_PAYLOAD" \
+            -d "$JIRA_PAYLOAD" \
             $JIRA_BASE_URL/rest/api/3/issue
