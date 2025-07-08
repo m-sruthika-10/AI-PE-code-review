@@ -46,8 +46,8 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_PROJECT_KEY: APB
-          SERVICE_DESK_ID: 2
-          REQUEST_TYPE_ID: 10001
+          SERVICE_DESK_ID: "2"
+          REQUEST_TYPE_ID: "10001"
         run: |
           # Parse comments as a JSON array
           COMMENTS=$(echo '${{ steps.get-comments.outputs.result }}' | jq -r '.')
@@ -102,6 +102,7 @@ jobs:
               "requestTypeId": $requestTypeId
             }')
           echo "COMMENTS=$COMMENTS"
+          echo "DESCRIPTION=$DESCRIPTION"
           echo "JIRA_PAYLOAD=$JIRA_PAYLOAD"
           curl -v -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
             -H "Content-Type: application/json" \
