@@ -1,0 +1,145 @@
+name: Create Jira Ticket on PR Comment
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  create-jira-ticket:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Get PR comment
+        id: get-comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          script: |
+            const comment = context.payload.comment.body;
+            return comment;
+
+      - name: Create Jira ticket
+        env:
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          PR_COMMENT: ${{ steps.get-comment.outputs.result }}
+        run: |
+          python -c "
+          import requests
+          import json
+          from base64 import b64encode
+          import os
+
+          # Configuration
+          JIRA_USER_EMAIL = os.getenv('JIRA_USER_EMAIL')
+          API_TOKEN = os.getenv('JIRA_API_TOKEN')
+          JIRA_BASE_URL = os.getenv('JIRA_BASE_URL')
+          PROJECT_KEY = 'APB'
+          SERVICE_DESK_ID = '2'
+          REQUEST_TYPE_ID = '10001'
+          PR_COMMENT = os.getenv('PR_COMMENT', 'No comment provided')
+
+          # Payload for creating a Jira issue
+          payload = {
+              'fields': {
+                  'project': {
+                      'key': PROJECT_KEY
+                  },
+                  'summary': 'Code Review Issue from Pull Request',
+                  'description': {
+                      'type': 'doc',
+                      'version': 1,
+                      'content': [
+                          {
+                              'type': 'paragraph',
+                              'content': [
+                                  {
+                                      'type': 'text',
+                                      'text': f'This issue was created based on a code review comment from a pull request. Details: {PR_COMMENT}'
+                                  }
+                              ]
+                          }
+                      ]
+                  },
+                  'issuetype': {
+                      'name': 'Submit a request or incident'
+                  }
+              },
+              'serviceDeskId': SERVICE_DESK_ID,
+              'requestTypeId': REQUEST_TYPE_ID
+          }
+
+          # Validate payload structure
+          def check_required_fields():
+              required_fields = ['project', 'summary', 'issuetype', 'description']
+              missing_fields = [field for field in required_fields if field not in payload['fields']]
+              if missing_fields:
+                  print(f'Missing required fields in payload: {', '.join(missing_fields)}')
+                  return False
+              description = payload['fields']['description']
+              if not (isinstance(description, dict) and
+                      description.get('type') == 'doc' and
+                      description.get('version') == 1 and
+                      isinstance(description.get('content'), list)):
+                  print('Description is not in valid Atlassian Document Format (ADF)')
+                  return False
+              if 'serviceDeskId' not in payload or 'requestTypeId' not in payload:
+                  print('Missing serviceDeskId or requestTypeId in payload')
+                  return False
+              return True
+
+          # Create Jira issue
+          def create_issue():
+              try:
+                  auth_str = f'{JIRA_USER_EMAIL}:{API_TOKEN}'
+                  auth_b64 = b64encode(auth_str.encode()).decode()
+                  headers = {
+                      'Authorization': f'Basic {auth_b64}',
+                      'Content-Type': 'application/json'
+                  }
+                  response = requests.post(
+                      f'{JIRA_BASE_URL}/rest/api/3/issue',
+                      headers=headers,
+                      json=payload,
+                      timeout=10
+                  )
+                  if response.status_code == 201:
+                      print('Payload is valid! Issue created successfully.')
+                      print('Response:', json.dumps(response.json(), indent=2))
+                      return True
+                  else:
+                      print(f'Failed to create issue. Status code: {response.status_code}')
+                      print('Error response:', json.dumps(response.json(), indent=2))
+                      return False
+              except requests.exceptions.RequestException as e:
+                  print(f'Error making API request: {e}')
+                  return False
+              except ValueError as e:
+                  print(f'Error decoding response: {e}')
+                  return False
+
+          # Main execution
+          print('Validating Jira payload...')
+          if check_required_fields():
+              if create_issue():
+                  print('Payload is ready for use in production.')
+              else:
+                  print('Payload validation failed. Check the error messages above.')
+          else:
+              print('Payload validation failed. Please fix the payload structure.')
+          "
