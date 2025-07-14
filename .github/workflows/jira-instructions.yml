@@ -7,11 +7,11 @@ jobs:
   update-instructions:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository
+      # Checkout the main branch to update instructions.md
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
-          ref: ${{ github.head_ref }}
+          ref: main # Checkout the main branch where instructions.md resides
 
       # Install Python
       - name: Set up Python
@@ -73,8 +73,8 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
 
-      # Update instructions.md with Jira ticket details
-      - name: Update instructions.md
+      # Append Jira ticket details to instructions.md
+      - name: Append to instructions.md
         run: |
           python -c "
           import json
@@ -85,26 +85,32 @@ jobs:
           summary = ticket['fields']['summary']
           description = ticket['fields']['description'] or 'No description provided'
 
-          instructions = f'# PR Review Instructions\n\n' \
-                        f'## Jira Ticket Details\n' \
+          try:
+              with open('instructions.md', 'r') as f:
+                  existing_content = f.read()
+          except FileNotFoundError:
+              existing_content = '# PR Review Instructions\n\n'
+
+          instructions = f'{existing_content}\n\n' \
+                        f'## Jira Ticket Details for PR #${{ github.event.pull_request.number }}\n' \
                         f'- **Ticket ID**: {ticket_id}\n' \
                         f'- **Summary**: {summary}\n' \
                         f'- **Description**: {description}\n\n' \
                         f'## Copilot Instructions\n' \
-                        f'GitHub Copilot, please review the code changes in this PR and verify they align with the Jira ticket ({ticket_id}) summary and description above. Ensure the code implements the described functionality and does not include unrelated changes.\n'
+                        f'GitHub Copilot, please review the code changes in PR #${{ github.event.pull_request.number }} and verify they align with the Jira ticket ({ticket_id}) summary and description above. Ensure the code implements the described functionality and does not include unrelated changes.\n'
 
           with open('instructions.md', 'w') as f:
               f.write(instructions)
           "
         shell: bash
 
-      # Commit changes to instructions.md
+      # Commit changes to instructions.md in the main branch
       - name: Commit updated instructions.md
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
           git add instructions.md
-          git commit -m "Update instructions.md with Jira ticket ${{ env.JIRA_TICKET }} details" || echo "No changes to commit"
+          git commit -m "Append Jira ticket ${{ env.JIRA_TICKET }} details to instructions.md for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
@@ -120,7 +126,7 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: 'success',
-              description: 'Jira ticket details added to instructions.md',
+              description: 'Jira ticket details appended to instructions.md',
               context: 'jira-instructions-check'
             });
 
@@ -135,5 +141,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: 'Failed to fetch Jira ticket details or update instructions.md. Please manually verify the PR against the Jira ticket.'
+              body: 'Failed to fetch Jira ticket details or update instructions.md. Please manually verify the PR against the Jira ticket ${{ env.JIRA_TICKET }}.'
             });
