@@ -1,0 +1,139 @@
+name: Update Instructions with Jira Ticket Details
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  update-instructions:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          ref: ${{ github.head_ref }}
+
+      # Install Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Install dependencies
+      - name: Install requests
+        run: pip install requests
+
+      # Extract Jira ticket ID from PR description
+      - name: Extract Jira Ticket ID
+        id: extract-jira
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          JIRA_TICKET=$(echo "$PR_BODY" | grep -Eo 'APB-[0-9]+' | head -n 1)
+          if [ -z "$JIRA_TICKET" ]; then
+            echo "Error: No Jira ticket ID found in PR description"
+            exit 1
+          fi
+          echo "JIRA_TICKET=$JIRA_TICKET" >> $GITHUB_ENV
+        shell: bash
+
+      # Fetch Jira ticket details with retry logic
+      - name: Fetch Jira Ticket Details
+        run: |
+          python -c "
+          import requests
+          import base64
+          import json
+          import time
+
+          email = '${{ secrets.JIRA_USER_EMAIL }}'
+          api_key = '${{ secrets.JIRA_API_TOKEN }}'
+          domain = '${{ secrets.JIRA_BASE_URL }}'
+          ticket_id = '${{ env.JIRA_TICKET }}'
+
+          credentials = base64.b64encode(f'{email}:{api_key}'.encode('utf-8')).decode('utf-8')
+          headers = {
+              'Authorization': f'Basic {credentials}',
+              'Accept': 'application/json'
+          }
+          url = f'{domain}/rest/api/3/issue/{ticket_id}?fields=summary,description'
+          for _ in range(3):
+              response = requests.get(url, headers=headers)
+              if response.status_code == 200:
+                  with open('jira_ticket.json', 'w') as f:
+                      json.dump(response.json(), f, indent=4)
+                  break
+              print(f'Retry {_+1}/3: Error {response.status_code} - {response.text}')
+              time.sleep(1)
+          else:
+              print(f'Error: Failed to fetch Jira ticket after 3 attempts')
+              exit(1)
+          "
+        env:
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+
+      # Update instructions.md with Jira ticket details
+      - name: Update instructions.md
+        run: |
+          python -c "
+          import json
+
+          with open('jira_ticket.json') as f:
+              ticket = json.load(f)
+          ticket_id = ticket['key']
+          summary = ticket['fields']['summary']
+          description = ticket['fields']['description'] or 'No description provided'
+
+          instructions = f'# PR Review Instructions\n\n' \
+                        f'## Jira Ticket Details\n' \
+                        f'- **Ticket ID**: {ticket_id}\n' \
+                        f'- **Summary**: {summary}\n' \
+                        f'- **Description**: {description}\n\n' \
+                        f'## Copilot Instructions\n' \
+                        f'GitHub Copilot, please review the code changes in this PR and verify they align with the Jira ticket ({ticket_id}) summary and description above. Ensure the code implements the described functionality and does not include unrelated changes.\n'
+
+          with open('instructions.md', 'w') as f:
+              f.write(instructions)
+          "
+        shell: bash
+
+      # Commit changes to instructions.md
+      - name: Commit updated instructions.md
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add instructions.md
+          git commit -m "Update instructions.md with Jira ticket ${{ env.JIRA_TICKET }} details" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+
+      # Set PR status check
+      - name: Set PR Status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: 'Jira ticket details added to instructions.md',
+              context: 'jira-instructions-check'
+            });
+
+      # Notify on failure
+      - name: Notify on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Failed to fetch Jira ticket details or update instructions.md. Please manually verify the PR against the Jira ticket.'
+            });
