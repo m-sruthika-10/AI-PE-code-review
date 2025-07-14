@@ -1,0 +1,5 @@
+# Jira Ticket Details for PR #138
+
+- **Ticket ID**: APB-6
+- **Summary**: PE-Build- Temperature conversion 
+- **Description**: {'type': 'doc', 'version': 1, 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': 'The celsius will be given as the input , convert it to the following:'}]}, {'type': 'bulletList', 'content': [{'type': 'listItem', 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': 'fahrenheit'}]}]}, {'type': 'listItem', 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': 'Kelvin'}]}]}]}, {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'The fahrenheitwill be given as the input , convert it to the following:'}]}, {'type': 'bulletList', 'content': [{'type': 'listItem', 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': 'celsius '}]}]}, {'type': 'listItem', 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': 'Kelvin'}]}]}]}]}
