@@ -1,5 +1,5 @@
+PR Review Instructions
 Copilot Code Review Instructions
-For pull request code reviews, adhere to the following guidelines based on file types and the presence of coding standards files in the repository:
 Java Files
 
 If docs/java_coding_standards.md exists, apply its coding standards to all files with the .java extension and Java-dependent files (e.g., pom.xml, build.gradle) for compliance with standards such as naming conventions, documentation, and formatting.
@@ -25,3 +25,10 @@ Only review files matching the specified extensions and their dependent files ba
 If only one standards file exists (e.g., docs/java_coding_standards.md but no guardrails.txt), review only the corresponding file types (e.g., .java and Java-dependent files).
 Provide detailed comments for violations, referencing the specific standard from the relevant standards file.
 Skip files that do not match the specified extensions or dependency criteria (e.g., .js, .md, .html).
+
+Jira Feature Check
+
+For each PR, Jira ticket details are stored in the .github directory in files named jira-ticket-details-<TICKET_ID>.txt (e.g., .github/jira-ticket-details-APB-6.txt).
+Review the PR changes and verify they implement the functionality described in the corresponding jira-ticket-details-<TICKET_ID>.txt file.
+Ensure the PR does not include unrelated changes beyond the scope of the Jira ticket’s summary and description.
+Provide comments for any discrepancies between the PR changes and the Jira ticket details, referencing specific details from the ticket file.
