@@ -5,19 +5,21 @@ on:
     types: [created]
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
-  id-token: write
+  contents: read
+  pull-requests: read
+  actions: read
 
 jobs:
   create-jira-ticket:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Event Payload
+        run: echo '${{ toJSON(github.event) }}'
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,7 +35,7 @@ jobs:
         id: get-comment
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
             const comment = context.payload.comment.body;
             return comment;
