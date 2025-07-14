@@ -1,4 +1,4 @@
-name: Update Instructions with Jira Ticket Details and Auto-Merge
+name: Create Jira Ticket Details File and Auto-Merge
 on:
   pull_request:
     types: [opened, edited, synchronize]
@@ -7,7 +7,7 @@ jobs:
   update-instructions:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the main branch to update .github/instructions.md
+      # Checkout the main branch
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
@@ -73,15 +73,16 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
 
-      # Create a new branch for instructions.md update
+      # Create a new unique branch to avoid conflicts
       - name: Create New Branch
         run: |
-          BRANCH_NAME="jira-instructions-${{ env.JIRA_TICKET }}"
+          TIMESTAMP=$(date +%s)
+          BRANCH_NAME="jira-instructions-${{ env.JIRA_TICKET }}-$TIMESTAMP"
           git checkout -b $BRANCH_NAME
         shell: bash
 
-      # Append Jira ticket details to .github/instructions.md
-      - name: Append to instructions.md
+      # Create a new text file with Jira ticket details
+      - name: Create Jira Ticket Details File
         run: |
           python -c "
           import json
@@ -92,38 +93,29 @@ jobs:
           summary = ticket['fields']['summary']
           description = ticket['fields']['description'] or 'No description provided'
 
-          try:
-              with open('.github/instructions.md', 'r') as f:
-                  existing_content = f.read()
-          except FileNotFoundError:
-              existing_content = '# PR Review Instructions\n\n'
+          details = f'# Jira Ticket Details for PR #${{ github.event.pull_request.number }}\n\n' \
+                    f'- **Ticket ID**: {ticket_id}\n' \
+                    f'- **Summary**: {summary}\n' \
+                    f'- **Description**: {description}\n'
 
-          instructions = f'{existing_content}\n\n' \
-                        f'## Jira Ticket Details for PR #${{ github.event.pull_request.number }}\n' \
-                        f'- **Ticket ID**: {ticket_id}\n' \
-                        f'- **Summary**: {summary}\n' \
-                        f'- **Description**: {description}\n\n' \
-                        f'## Copilot Instructions\n' \
-                        f'GitHub Copilot, please review the code changes in PR #${{ github.event.pull_request.number }} and verify they align with the Jira ticket ({ticket_id}) summary and description above. Ensure the code implements the described functionality and does not include unrelated changes.\n'
-
-          with open('.github/instructions.md', 'w') as f:
-              f.write(instructions)
+          with open('.github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt', 'w') as f:
+              f.write(details)
           "
         shell: bash
 
       # Commit changes to the new branch
-      - name: Commit updated instructions.md
+      - name: Commit Jira ticket details file
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git add .github/instructions.md
-          git commit -m "Append Jira ticket ${{ env.JIRA_TICKET }} details to .github/instructions.md for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
-          git push --set-upstream origin jira-instructions-${{ env.JIRA_TICKET }}
+          git add .github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt
+          git commit -m "Add Jira ticket ${{ env.JIRA_TICKET }} details to .github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
+          git push --set-upstream origin jira-instructions-${{ env.JIRA_TICKET }}-$(date +%s)
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       # Create a pull request to merge into main
-      - name: Create Pull Request for instructions.md
+      - name: Create Pull Request for Jira ticket details
         id: create-pr
         uses: actions/github-script@v7
         with:
@@ -131,13 +123,14 @@ jobs:
           script: |
             const ticket_id = '${{ env.JIRA_TICKET }}';
             const pr_number = ${{ github.event.pull_request.number }};
+            const timestamp = Math.floor(Date.now() / 1000);
             const result = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Update .github/instructions.md with Jira ticket ${ticket_id} details for PR #${pr_number}`,
-              head: `jira-instructions-${ticket_id}`,
+              title: `Add .github/jira-ticket-details-${ticket_id}.txt for PR #${pr_number}`,
+              head: `jira-instructions-${ticket_id}-${timestamp}`,
               base: 'main',
-              body: `This PR updates .github/instructions.md with Jira ticket ${ticket_id} details for PR #${pr_number}. Auto-generated by GitHub Action.`
+              body: `This PR adds Jira ticket ${ticket_id} details to .github/jira-ticket-details-${ticket_id}.txt for PR #${pr_number}. Auto-generated by GitHub Action.`
             });
             return result.data.number;
 
@@ -161,7 +154,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: ${{ github.event.pull_request.number }},
-                body: `Failed to auto-merge PR #${pr_number} for updating .github/instructions.md with Jira ticket ${{ env.JIRA_TICKET }} details. Please manually merge the PR to make the details available for Copilot review.`
+                body: `Failed to auto-merge PR #${pr_number} for adding .github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt. Please manually merge the PR to make the details available for Copilot review.`
               });
               throw error;
             }
@@ -177,7 +170,7 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: 'success',
-              description: 'Jira ticket details appended to .github/instructions.md and merged into main',
+              description: 'Jira ticket details added to .github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt and merged into main',
               context: 'jira-instructions-check'
             });
 
@@ -192,5 +185,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: 'Failed to fetch Jira ticket details, update .github/instructions.md, or auto-merge PR. Please manually verify the PR against the Jira ticket ${{ env.JIRA_TICKET }}.'
+              body: 'Failed to fetch Jira ticket details, add .github/jira-ticket-details-${{ env.JIRA_TICKET }}.txt, or auto-merge PR. Please manually verify the PR against the Jira ticket ${{ env.JIRA_TICKET }}.'
             });
