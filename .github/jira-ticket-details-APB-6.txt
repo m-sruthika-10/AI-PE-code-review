@@ -1,4 +1,4 @@
-# Jira Ticket Details for PR #2486
+# Jira Ticket Details for PR #2487
 
 - **Ticket ID**: APB-6
 - **Summary**: PE-Build- Temperature conversion 
