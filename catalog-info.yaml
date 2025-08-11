@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ai-pe-code-review
+  description: AI-powered code review project
+  annotations:
+    github.com/project-slug: m-sruthika-10/AI-PE-code-review
+spec:
+  type: service
+  owner: sruthika
+  lifecycle: experimental
