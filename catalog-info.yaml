@@ -5,6 +5,8 @@ metadata:
   description: AI-powered code review project
   annotations:
     github.com/project-slug: m-sruthika-10/AI-PE-code-review
+    backstage.io/techdocs-ref: dir:.
+    github.com/actions-workflow: main.yml # Change to your workflow filename if different
 spec:
   type: service
   owner: sruthika
