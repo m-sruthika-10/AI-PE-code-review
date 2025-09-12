@@ -1,11 +1,12 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ai-pe-code-review
-  description: AI-powered code review tool
+  name: m-sruthika-10-AI-PE-code-review              # Matches ${repo.replace('/', '-')}
+  namespace: default                    # Matches the namespace in the URL
   annotations:
-    github.com/project-slug: m-sruthika-10/AI-PE-code-review
+    github.com/project-slug: m-sruthika-10/AI-PE-code-review  # Added correct annotation
+    backstage.io/github-repo: m-sruthika-10/AI-PE-code-review # Optional, can be kept for compatibility
 spec:
   type: service
   lifecycle: experimental
-  owner: user:m-sruthika-10
+  owner: user:default/m-sruthika-10      # Use 'user:namespace/username' format for owner
